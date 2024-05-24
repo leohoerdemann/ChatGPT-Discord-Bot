@@ -8,15 +8,19 @@ namespace ChatGPT_Discord_Bot
 
             // Add services to the container.
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen(c =>
-            {
-                c.SwaggerDoc("v1", new() { Title = "My API", Version = "v1" });
-            });
+            builder.Services.AddSwaggerGen();
 
             var app = builder.Build();
 
+            app.UseSwagger();
+            app.UseSwaggerUI();
+
+            app.UseHttpsRedirection();
+
+
             var leobot = new BotLogic();
             leobot.Start().GetAwaiter().GetResult();
+
 
             app.MapPut("/sendDm/{user}/{message}", (string user, string message) =>
             {
@@ -34,14 +38,6 @@ namespace ChatGPT_Discord_Bot
             {
                 return Results.Ok("Hello World!");
             });
-
-
-
-            app.UseSwagger();
-            app.UseSwaggerUI();
-
-            app.UseHttpsRedirection();
-
 
             app.Run();
         }
