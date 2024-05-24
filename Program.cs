@@ -30,6 +30,11 @@ namespace ChatGPT_Discord_Bot
                 return Results.Ok();
             });
 
+            app.MapGet("/test", () =>
+            {
+                return Results.Ok("Hello World!");
+            });
+
 
 
             app.UseSwagger();
