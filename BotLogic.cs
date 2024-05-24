@@ -80,7 +80,7 @@ namespace ChatGPT_Discord_Bot
             //    .WithDescription("lock server");
 
             var bugreportCommand = new SlashCommandBuilder()
-                .WithName("bugreport")
+                .WithName("reportbug")
                 .WithDescription("report a bug")
                 .AddOption(new SlashCommandOptionBuilder()
                     .WithName("Bug description")
