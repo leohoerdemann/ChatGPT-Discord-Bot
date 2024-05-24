@@ -83,7 +83,7 @@ namespace ChatGPT_Discord_Bot
                 .WithName("reportbug")
                 .WithDescription("report a bug")
                 .AddOption(new SlashCommandOptionBuilder()
-                    .WithName("Bug description")
+                    .WithName("Bug_description")
                     .WithDescription("Description of the issue found")
                     .WithType(ApplicationCommandOptionType.String)
                     .WithRequired(true));
