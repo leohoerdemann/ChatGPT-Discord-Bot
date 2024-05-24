@@ -9,7 +9,7 @@ namespace ChatGPT_Discord_Bot
 
         public static async Task<string> GetSecret(string secretId)
         {
-            SecretVersionName secretVersionName = new SecretVersionName("LeoBot", secretId, "latest");
+            SecretVersionName secretVersionName = new SecretVersionName("magnetic-icon-424305-m8", secretId, "latest");
             AccessSecretVersionResponse result = await client.AccessSecretVersionAsync(secretVersionName);
             return result.Payload.Data.ToStringUtf8();
         }

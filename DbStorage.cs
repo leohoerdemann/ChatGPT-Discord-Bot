@@ -4,7 +4,7 @@ namespace ChatGPT_Discord_Bot
 {
     public static class DbStorage
     {
-        public static FirestoreDb db = FirestoreDb.Create("LeoBot");
+        public static FirestoreDb db = FirestoreDb.Create("magnetic-icon-424305-m8");
 
 
         public static async Task AddChannel(string channelID)
