@@ -15,6 +15,23 @@ namespace ChatGPT_Discord_Bot
 
             var app = builder.Build();
 
+            var leobot = new BotLogic();
+            leobot.Start().GetAwaiter().GetResult();
+
+            app.MapPut("/sendDm/{user}/{message}", (string user, string message) =>
+            {
+                leobot.sendDM(message, user);
+                return Results.Ok();
+            });
+
+            app.MapPut("/sendman/{message}/{channel}", (string message, string channel) =>
+            {
+                leobot.sendManual(message, channel);
+                return Results.Ok();
+            });
+
+
+
             app.UseSwagger();
             app.UseSwaggerUI();
 

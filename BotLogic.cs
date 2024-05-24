@@ -107,6 +107,16 @@ namespace ChatGPT_Discord_Bot
         {
             if (message.Author.IsBot) return;
 
+            if (await DbStorage.CheckBanUser(message.Author.Id.ToString()))
+            {
+                return;
+            }
+
+            if (await DbStorage.CheckChannel(message.Channel.Id.ToString()))
+            {
+                return;
+            }
+
             if (message.MentionedUsers.Any(user => user.Id == _client.CurrentUser.Id) || message.Channel.GetType() == typeof(SocketDMChannel))
             {
                 var userMessage = message.Content.Replace($"<@!{_client.CurrentUser.Id}>", "").Trim();
@@ -234,10 +244,28 @@ namespace ChatGPT_Discord_Bot
                     break;
                 case "bugreport":
                     string bugDescription = command.Data.Options.First().Value.ToString();
+                    await sendManual($"Bug report: {bugDescription}", "1243585805180735558");
                     await command.RespondAsync("Bug report has been sent");
                     break;
             }
       
+        }
+
+        public async Task sendManual(string message, string channelID)
+        {
+            foreach(var guild in _client.Guilds)
+            {
+                if (guild.GetTextChannel(ulong.Parse(channelID)) != null)
+                {
+                    await guild.GetTextChannel(ulong.Parse(channelID)).SendMessageAsync(message);
+                }
+            }
+        }
+
+        public async Task sendDM(string message, string userID)
+        {
+            var user = _client.GetUser(ulong.Parse(userID));
+            await user.SendMessageAsync(message);
         }
 
         private static IEnumerable<string> SplitMessage(string message, int chunkSize)
