@@ -45,14 +45,14 @@ namespace ChatGPT_Discord_Bot
         {
             Console.WriteLine("Bot is connected");
 
-            var banCommand = new SlashCommandBuilder()
+            /*var banCommand = new SlashCommandBuilder()
                 .WithName("ban")
                 .WithDescription("ban user")
                 .AddOption(new SlashCommandOptionBuilder()
                     .WithName("user")
                     .WithDescription("user to ban")
                     .WithType(ApplicationCommandOptionType.User)
-                    .WithRequired(true));
+                    .WithRequired(true)); */
 
             var unbanCommand = new SlashCommandBuilder()
                 .WithName("unban")
@@ -79,14 +79,14 @@ namespace ChatGPT_Discord_Bot
             //    .WithName("lockserver")
             //    .WithDescription("lock server");
 
-            //var bugreportCommand = new SlashCommandBuilder()
-            //    .WithName("reportbug")
-            //    .WithDescription("report a bug")
-            //    .AddOption(new SlashCommandOptionBuilder()
-            //        .WithName("description")
-            //        .WithDescription("Description of the issue found")
-            //        .WithType(ApplicationCommandOptionType.String)
-            //        .WithRequired(true));
+            var bugreportCommand = new SlashCommandBuilder()
+                .WithName("reportbug")
+                .WithDescription("report a bug")
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("description")
+                    .WithDescription("description of the issue found")
+                    .WithType(ApplicationCommandOptionType.String)
+                    .WithRequired(true));
 
             await _client.CreateGlobalApplicationCommandAsync(banCommand.Build());
             await _client.CreateGlobalApplicationCommandAsync(unbanCommand.Build());
@@ -94,7 +94,7 @@ namespace ChatGPT_Discord_Bot
             await _client.CreateGlobalApplicationCommandAsync(lockChannelCommand.Build());
             // await _client.CreateGlobalApplicationCommandAsync(unlockServerCommand.Build());
             // await _client.CreateGlobalApplicationCommandAsync(lockServerCommand.Build());
-            // await _client.CreateGlobalApplicationCommandAsync(bugreportCommand.Build());
+            await _client.CreateGlobalApplicationCommandAsync(bugreportCommand.Build());
         }
 
         private Task LogAsync(LogMessage log)
