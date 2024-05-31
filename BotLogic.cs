@@ -95,6 +95,7 @@ namespace ChatGPT_Discord_Bot
             await _client.CreateGlobalApplicationCommandAsync(unlockServerCommand.Build());
             await _client.CreateGlobalApplicationCommandAsync(lockServerCommand.Build());
             await _client.CreateGlobalApplicationCommandAsync(bugreportCommand.Build());
+
         }
 
         private Task LogAsync(LogMessage log)
@@ -106,7 +107,7 @@ namespace ChatGPT_Discord_Bot
         private async Task MessageReceivedAsync(SocketMessage message)
         {
 
-            Console.WriteLine("User: {0} Said: \"{1}\", in: {2}", message.Author, message.Content, message.Channel);
+            Console.WriteLine("User: {0} Said: \" {1} \", in: {2}", message.Author.ToString(), message.Content.ToString(), message.Channel.ToString());
 
             if (message.Author.IsBot) return;
 
