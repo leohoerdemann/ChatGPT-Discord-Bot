@@ -41,10 +41,8 @@ namespace ChatGPT_Discord_Bot
             await Task.Delay(-1);
         }
 
-        private async Task Client_Ready()
+        private async Task addSlashCommands()
         {
-            Console.WriteLine("Bot is connected");
-
             var banCommand = new SlashCommandBuilder()
                 .WithName("ban")
                 .WithDescription("ban user")
@@ -95,6 +93,12 @@ namespace ChatGPT_Discord_Bot
             await _client.CreateGlobalApplicationCommandAsync(unlockServerCommand.Build());
             await _client.CreateGlobalApplicationCommandAsync(lockServerCommand.Build());
             await _client.CreateGlobalApplicationCommandAsync(bugreportCommand.Build());
+        }
+
+        private async Task Client_Ready()
+        {
+            Console.WriteLine("Bot is connected");
+            Task.Run(() => addSlashCommands());
 
         }
 
@@ -246,7 +250,7 @@ namespace ChatGPT_Discord_Bot
                         await command.RespondAsync("You do not have permission to use this command");
                     }
                     break;
-                case "bugreport":
+                case "reportbug":
                     string bugDescription = command.Data.Options.First().Value.ToString();
                     await sendManual($"Bug report: {bugDescription}", "1243585805180735558");
                     await command.RespondAsync("Bug report has been sent");
