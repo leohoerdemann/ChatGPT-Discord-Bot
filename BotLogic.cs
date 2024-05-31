@@ -105,6 +105,9 @@ namespace ChatGPT_Discord_Bot
 
         private async Task MessageReceivedAsync(SocketMessage message)
         {
+
+            Console.WriteLine("User: {0} Said: \"{1}\", in: {2}", message.Author, message.Content, message.Channel);
+
             if (message.Author.IsBot) return;
 
             if (await DbStorage.CheckBanUser(message.Author.Id.ToString()))
