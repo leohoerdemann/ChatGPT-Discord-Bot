@@ -19,7 +19,7 @@ namespace ChatGPT_Discord_Bot
 
 
             var leobot = new BotLogic();
-            leobot.Start().GetAwaiter().GetResult();
+            leobot.Start();
 
 
             app.MapPut("/sendDm/{user}/{message}", (string user, string message) =>
