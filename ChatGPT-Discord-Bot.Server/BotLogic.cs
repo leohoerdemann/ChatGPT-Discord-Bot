@@ -386,7 +386,7 @@ namespace ChatGPT_Discord_Bot.Server
                     messages.Add(new SystemChatMessage(initialPrompt));
                 }
 
-                var storageMessages = await DbStorage.GetMessagesByChannelAsync(command.Channel.Id.ToString());
+                var storageMessages = await DbStorage.GetMessagesByChannelAsync(command.Channel.Name);
                 foreach (var message in storageMessages)
                 {
                     if (message.SentByUser)
