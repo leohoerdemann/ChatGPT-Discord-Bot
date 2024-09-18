@@ -8,7 +8,8 @@ const App = () => {
     const [messagesPerChannel, setMessagesPerChannel] = useState([]);
     const [serverUptime, setServerUptime] = useState('');
 
-    useEffect(() => {
+    // Function to fetch and update all the data
+    const fetchData = () => {
         // Fetch total messages
         fetch('/api/stats/messages/total')
             .then(response => response.json())
@@ -34,6 +35,13 @@ const App = () => {
         fetch('/api/stats/server/uptime')
             .then(response => response.json())
             .then(data => setServerUptime(data.uptime));
+    };
+
+    // UseEffect to set an interval to update the data every second
+    useEffect(() => {
+        fetchData(); // Initial fetch
+        const interval = setInterval(fetchData, 1000); // Update every second
+        return () => clearInterval(interval); // Cleanup interval on unmount
     }, []);
 
     return (
@@ -51,7 +59,7 @@ const App = () => {
             </div>
 
             <h3>Messages per User</h3>
-            <ResponsiveContainer className="responsive-chart">
+            <ResponsiveContainer className="chart-container">
                 <BarChart data={messagesPerUser}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="user" />
@@ -62,13 +70,13 @@ const App = () => {
             </ResponsiveContainer>
 
             <h3>Messages per Channel</h3>
-            <ResponsiveContainer className="responsive-chart">
+            <ResponsiveContainer className="chart-container">
                 <PieChart>
                     <Pie
                         data={messagesPerChannel}
                         dataKey="count"
                         nameKey="channel"
-                        outerRadius={150}
+                        outerRadius="80%"
                         fill="#8884d8"
                         label
                     >

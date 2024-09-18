@@ -1,36 +1,37 @@
-﻿/* Center the entire dashboard */
-.dashboard {
-    max-width: 1200px; /* Set a max-width to limit how wide the content gets */
-    margin: 0 auto; /* Center the dashboard horizontally */
-    padding: 20px;
+﻿/* Make dashboard take full viewport */
+html, body, #root, .dashboard {
+    height: 100%;
+    margin: 0;
+    padding: 0;
     font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
     background-color: #f4f4f4;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    text-align: center; /* Center all text */
 }
 
-/* Style for headings */
+.dashboard {
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
 h2 {
     text-align: center;
-    margin-bottom: 20px;
     font-size: 24px;
     color: #333;
+    margin-bottom: 20px;
 }
 
-h3 {
-    font-size: 20px;
-    margin-top: 30px;
-    color: #333;
-    text-align: center; /* Ensure headings are centered */
-}
-
-/* Style for the status indicator cards */
 .status-indicators {
     display: flex;
-    justify-content: center; /* Center the status cards */
-    gap: 30px; /* Add space between the cards */
+    justify-content: center;
+    gap: 30px;
     margin-bottom: 30px;
+    width: 100%;
 }
 
 .status-card {
@@ -42,7 +43,6 @@ h3 {
     width: 200px;
 }
 
-    /* Text styles inside the status cards */
     .status-card h3 {
         font-size: 18px;
         margin-bottom: 10px;
@@ -55,9 +55,15 @@ h3 {
         color: #444;
     }
 
-/* Responsive container for charts */
-.responsive-chart {
-    width: 100%;
+.chart-container {
+    width: 90%;
     height: 400px;
-    margin: 0 auto;
+    margin: 20px 0;
+}
+
+h3 {
+    font-size: 20px;
+    color: #333;
+    text-align: center;
+    margin-bottom: 20px;
 }
