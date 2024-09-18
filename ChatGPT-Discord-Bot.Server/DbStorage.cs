@@ -92,8 +92,7 @@ namespace ChatGPT_Discord_Bot.Server
             DateTime cutoffDate = DateTime.UtcNow.AddDays(-MaxMessageAgeDays);
             foreach (var messageDoc in userMessages)
             {
-                Message message = messageDoc.ConvertTo<Message>();
-                if (message.SentAt < cutoffDate)
+                if (messageDoc.GetValue<DateTime>("SentAt") < cutoffDate)
                 {
                     await messageDoc.Reference.DeleteAsync();
                 }
