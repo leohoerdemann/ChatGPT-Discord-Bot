@@ -51,7 +51,7 @@ const App = () => {
             </div>
 
             <h3>Messages per User</h3>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer className="responsive-chart">
                 <BarChart data={messagesPerUser}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="user" />
@@ -62,7 +62,7 @@ const App = () => {
             </ResponsiveContainer>
 
             <h3>Messages per Channel</h3>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer className="responsive-chart">
                 <PieChart>
                     <Pie
                         data={messagesPerChannel}
