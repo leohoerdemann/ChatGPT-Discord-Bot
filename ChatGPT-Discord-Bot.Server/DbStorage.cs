@@ -54,9 +54,12 @@ namespace ChatGPT_Discord_Bot.Server
             await EnforceMessageLimitsAsync(message.Sender, message.Channel);
 
             // Update high-level statistics
-            _totalMessages++;
-            _messagesPerChannel.AddOrUpdate(message.Channel, 1, (key, value) => value + 1);
-            _messagesPerUser.AddOrUpdate(message.Sender, 1, (key, value) => value + 1);
+            if(message.SentByUser)
+            {
+                _totalMessages++;
+                _messagesPerChannel.AddOrUpdate(message.Channel, 1, (key, value) => value + 1);
+                _messagesPerUser.AddOrUpdate(message.Sender, 1, (key, value) => value + 1);
+            }
         }
 
         // Retrieve messages by channel
