@@ -1,8 +1,8 @@
 ﻿using Google.Cloud.SecretManager.V1;
 
-namespace ChatGPT_Discord_Bot
+namespace ChatGPT_Discord_Bot.Server
 {
-    public static class GoogleSecrets
+    public class GoogleSecrets
     {
         private static SecretManagerServiceClient client = SecretManagerServiceClient.Create();
 

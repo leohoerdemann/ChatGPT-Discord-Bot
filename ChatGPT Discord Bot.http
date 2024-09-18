@@ -1,6 +1,0 @@
-@ChatGPT_Discord_Bot_HostAddress = http://localhost:5263
-
-GET {{ChatGPT_Discord_Bot_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
