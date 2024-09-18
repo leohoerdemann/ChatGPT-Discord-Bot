@@ -42,7 +42,7 @@ namespace ChatGPT_Discord_Bot.Server
         {
             CollectionReference messagesRef = _firestoreDb.Collection("messages");
 
-            var temp = new
+            await messagesRef.AddAsync(new
             {
                 Content = message.Content,
                 Sender = message.Sender,
@@ -50,8 +50,7 @@ namespace ChatGPT_Discord_Bot.Server
                 Channel = message.Channel,
                 SentAt = message.SentAt,
                 SentByUser = message.SentByUser
-            };
-            await messagesRef.AddAsync(temp);
+            });
             await EnforceMessageLimitsAsync(message.Sender, message.Channel);
 
             // Update high-level statistics
