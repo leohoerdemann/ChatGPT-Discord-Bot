@@ -41,7 +41,17 @@ namespace ChatGPT_Discord_Bot.Server
         public async Task AddMessageAsync(Message message)
         {
             CollectionReference messagesRef = _firestoreDb.Collection("messages");
-            await messagesRef.AddAsync(message);
+
+            var temp = new
+            {
+                Content = message.Content,
+                Sender = message.Sender,
+                Server = message.Server,
+                Channel = message.Channel,
+                SentAt = message.SentAt,
+                SentByUser = message.SentByUser
+            };
+            await messagesRef.AddAsync(temp);
             await EnforceMessageLimitsAsync(message.Sender, message.Channel);
 
             // Update high-level statistics
