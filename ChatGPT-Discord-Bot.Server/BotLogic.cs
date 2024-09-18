@@ -416,7 +416,7 @@ namespace ChatGPT_Discord_Bot.Server
                 // Split response into chunks if necessary
                 var responseChunks = SplitMessage(responseText);
 
-                await DbStorage.AddMessageAsync(new DbStorage.Message
+                DbStorage.AddMessageAsync(new DbStorage.Message
                 {
                     Content = question,
                     Sender = command.User.Username,
@@ -426,7 +426,7 @@ namespace ChatGPT_Discord_Bot.Server
                     SentByUser = true
                 });
 
-                await DbStorage.AddMessageAsync(new DbStorage.Message
+                DbStorage.AddMessageAsync(new DbStorage.Message
                 {
                     Content = responseText,
                     Sender = model,
