@@ -48,7 +48,7 @@ namespace ChatGPT_Discord_Bot.Server
                 Sender = message.Sender,
                 Server = message.Server,
                 Channel = message.Channel,
-                SentAt = message.SentAt,
+                SentAt = message.SentAt.ToUniversalTime(),
                 SentByUser = message.SentByUser
             });
             await EnforceMessageLimitsAsync(message.Sender, message.Channel);
