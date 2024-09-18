@@ -1,288 +1,253 @@
-﻿using Azure;
-using Azure.AI.OpenAI;
-using Discord;
+﻿using Discord;
 using Discord.WebSocket;
-using Google.Protobuf;
-using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
-using System.Net.Http;
-using System.Text;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using ChatGPT_Discord_Bot;
+using Google.Cloud.Firestore;
+using OpenAI.Chat;
+using OpenAI;
 
 namespace ChatGPT_Discord_Bot
 {
     public class BotLogic
     {
-        private DiscordSocketClient _client;
-        private string _discordToken;
-        private string _openAIKey;
-        private OpenAIClient _openAI;
-        private string _adminID; //my discord user id 
+        private readonly DiscordSocketClient _client;
+        private OpenAIClient _openAiClient;
+        private readonly DbStorage _dbStorage;
+        private string _authorizedUserId;
+        private const int DiscordMessageLimit = 2000;
 
         public BotLogic()
         {
-            _client = new DiscordSocketClient();
-            _discordToken =  GoogleSecrets.GetDiscordToken().Result;
-            _openAIKey = GoogleSecrets.GetOpenAIKey().Result;
-            _openAI = new OpenAIClient(_openAIKey);
-            _adminID = GoogleSecrets.GetAdminID().Result;
-        }
+            _client = new DiscordSocketClient(new DiscordSocketConfig
+            {
+                GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent,
+                UseInteractionSnowflakeDate = false
+            });
 
-        public async Task Start()
-        {
             _client.Log += LogAsync;
-            _client.MessageReceived += MessageReceivedAsync;
-            _client.Ready += Client_Ready;
+            _client.Ready += ReadyAsync;
             _client.SlashCommandExecuted += SlashCommandHandler;
 
-            await _client.LoginAsync(TokenType.Bot, _discordToken);
+            _dbStorage = new DbStorage();
+        }
+
+        public async Task InitializeAsync()
+        {
+            var discordToken = await GoogleSecrets.GetDiscordToken();
+            await _client.LoginAsync(TokenType.Bot, discordToken);
             await _client.StartAsync();
 
-            await Task.Delay(-1);
+            var openAiApiKey = await GoogleSecrets.GetOpenAIKey();
+
+            // Instantiate the OpenAIClient
+            _openAiClient = new OpenAIClient(openAiApiKey);
+
+            _authorizedUserId = await GoogleSecrets.GetAdminID();
         }
 
-        private async Task addSlashCommands()
+        private Task LogAsync(LogMessage msg)
         {
-            var banCommand = new SlashCommandBuilder()
-                .WithName("ban")
-                .WithDescription("ban user")
-                .AddOption(new SlashCommandOptionBuilder()
-                    .WithName("user")
-                    .WithDescription("user to ban")
-                    .WithType(ApplicationCommandOptionType.User)
-                    .WithRequired(true));
-
-            var unbanCommand = new SlashCommandBuilder()
-                .WithName("unban")
-                .WithDescription("unban user")
-                .AddOption(new SlashCommandOptionBuilder()
-                    .WithName("user")
-                    .WithDescription("user to unban")
-                    .WithType(ApplicationCommandOptionType.User)
-                    .WithRequired(true));
-
-            var unlockChannelCommand = new SlashCommandBuilder()
-                .WithName("unlock")
-                .WithDescription("unlock channel");
-
-            var lockChannelCommand = new SlashCommandBuilder()
-                .WithName("lock")
-                .WithDescription("lock channel");
-
-            var unlockServerCommand = new SlashCommandBuilder()
-                .WithName("unlockserver")
-                .WithDescription("unlock server");
-
-            var lockServerCommand = new SlashCommandBuilder()
-                .WithName("lockserver")
-                .WithDescription("lock server");
-
-            var bugreportCommand = new SlashCommandBuilder()
-                .WithName("reportbug")
-                .WithDescription("report a bug")
-                .AddOption(new SlashCommandOptionBuilder()
-                    .WithName("description")
-                    .WithDescription("description of the issue found")
-                    .WithType(ApplicationCommandOptionType.String)
-                    .WithRequired(true));
-
-            await _client.CreateGlobalApplicationCommandAsync(banCommand.Build());
-            await _client.CreateGlobalApplicationCommandAsync(unbanCommand.Build());
-            await _client.CreateGlobalApplicationCommandAsync(unlockChannelCommand.Build());
-            await _client.CreateGlobalApplicationCommandAsync(lockChannelCommand.Build());
-            await _client.CreateGlobalApplicationCommandAsync(unlockServerCommand.Build());
-            await _client.CreateGlobalApplicationCommandAsync(lockServerCommand.Build());
-            await _client.CreateGlobalApplicationCommandAsync(bugreportCommand.Build());
-        }
-
-        private async Task Client_Ready()
-        {
-            Console.WriteLine("Bot is connected");
-            Task.Run(() => addSlashCommands());
-
-        }
-
-        private Task LogAsync(LogMessage log)
-        {
-            Console.WriteLine(log.ToString());
+            Console.WriteLine(msg.ToString());
             return Task.CompletedTask;
         }
 
-        private async Task MessageReceivedAsync(SocketMessage message)
+        private async Task ReadyAsync()
         {
+            // Register Slash Commands
+            var guilds = _client.Guilds;
 
-            Console.WriteLine("User: {0} Said: \" {1} \", in: {2}", message.Author.ToString(), message.Content.ToString(), message.Channel.ToString());
-
-            if (message.Author.IsBot) return;
-
-            if (await DbStorage.CheckBanUser(message.Author.Id.ToString()))
+            foreach (var guild in guilds)
             {
-                return;
-            }
-
-            if (await DbStorage.CheckChannel(message.Channel.Id.ToString()))
-            {
-                return;
-            }
-
-            if (message.MentionedUsers.Any(user => user.Id == _client.CurrentUser.Id) || message.Channel.GetType() == typeof(SocketDMChannel))
-            {
-                var userMessage = message.Content.Replace($"<@!{_client.CurrentUser.Id}>", "").Trim();
-
-                string response;
-
-                if (message.Content.Contains("!F"))
+                var commands = new List<ApplicationCommandProperties>
                 {
-                    response = await GetOpenAIResponseNoFormatt(userMessage);
-                }
-                else
-                {
-                    await DbStorage.AddMessage(message.Channel.Id.ToString(), message.Author.Username, userMessage);
+                    new SlashCommandBuilder()
+                        .WithName("ask")
+                        .WithDescription("Ask a question to ChatGPT 4o with context")
+                        .AddOption("question", ApplicationCommandOptionType.String, "Your question", isRequired: true)
+                        .Build(),
+                    new SlashCommandBuilder()
+                        .WithName("askblank")
+                        .WithDescription("Ask a question to ChatGPT 4o with out context")
+                        .AddOption("question", ApplicationCommandOptionType.String, "Your question", isRequired: true)
+                        .Build(),
+                    new SlashCommandBuilder()
+                        .WithName("asko1")
+                        .WithDescription("Ask a question to ChatGPT o1 with context")
+                        .AddOption("question", ApplicationCommandOptionType.String, "Your question", isRequired: true)
+                        .Build(),
+                    new SlashCommandBuilder()
+                        .WithName("timeout")
+                        .WithDescription("Timeout a user (Authorized users only)")
+                        .AddOption("userid", ApplicationCommandOptionType.String, "User ID to timeout", isRequired: true)
+                        .AddOption("duration", ApplicationCommandOptionType.Integer, "Duration in seconds", isRequired: true)
+                        .Build()
+                    // Additional commands can be added here
+                };
 
-                    response = await GetOpenAIResponse(message.Channel.Id.ToString());
-                }
-
-                const int discordMessageLimit = 2000; // Discord message char limit
-                if (response.Length > discordMessageLimit)
+                foreach (var command in commands)
                 {
-                    var messages = SplitMessage(response, discordMessageLimit);
-                    foreach (var msg in messages)
-                    {
-                        await message.Channel.SendMessageAsync(msg);
-                    }
-                }
-                else
-                {
-                    await message.Channel.SendMessageAsync(response);
+                    await guild.CreateApplicationCommandAsync(command);
                 }
             }
-
-            await DbStorage.RemoveOldMessages(message.Channel.Id.ToString());
-        }
-
-
-        private async Task<string> GetOpenAIResponse(string channelID)
-        {
-            var chatCompletionsOptions = new ChatCompletionsOptions()
-            {
-                DeploymentName = "gpt-4o", // Use DeploymentName for "model" with non-Azure clients
-                                           // The system message represents instructions or other guidance about how the assistant should behave
-
-                Messages =
-                {
-                    new ChatRequestSystemMessage(await GoogleSecrets.GetPrompt())
-                }
-            };
-
-            foreach (string message in await DbStorage.GetMessages(channelID))
-            {
-                chatCompletionsOptions.Messages.Add(new ChatRequestUserMessage(message));
-            }
-
-            Response<ChatCompletions> response = await _openAI.GetChatCompletionsAsync(chatCompletionsOptions);
-            ChatResponseMessage responseMessage = response.Value.Choices[0].Message;
-            return responseMessage.Content;
-        }
-
-        private async Task<string> GetOpenAIResponseNoFormatt(string userMessage)
-        {
-            var chatCompletionsOptions = new ChatCompletionsOptions()
-            {
-                DeploymentName = "gpt-4o", // Use DeploymentName for "model" with non-Azure clients
-                                           // The system message represents instructions or other guidance about how the assistant should behave
-
-                Messages =
-                {
-                    new ChatRequestUserMessage(userMessage)
-                }
-            };
-
-            Response<ChatCompletions> response = await _openAI.GetChatCompletionsAsync(chatCompletionsOptions);
-            ChatResponseMessage responseMessage = response.Value.Choices[0].Message;
-            return responseMessage.Content;
         }
 
         private async Task SlashCommandHandler(SocketSlashCommand command)
         {
-            switch (command.Data.Name)
+            switch (command.CommandName)
             {
-                case "ban":
-                    if (command.User.Id.ToString() == _adminID)
-                    {
-                        await DbStorage.BanUser(command.Data.Options.First().Value.ToString());
-                        await command.RespondAsync("User has been banned");
-                    }
-                    else
-                    {
-                        await command.RespondAsync("You do not have permission to use this command");
-                    }
+                case "ask":
+                    await ProcessChatGPTCommand(command, "gpt-4o");
                     break;
-                case "unban":
-                    if (command.User.Id.ToString() == _adminID)
-                    {
-                        await DbStorage.UnbanUser(command.Data.Options.First().Value.ToString());
-                        await command.RespondAsync("User has been unbanned");
-                    }
-                    else
-                    {
-                        await command.RespondAsync("You do not have permission to use this command");
-                    }
+                case "askblank":
+                    await ProcessChatGPTCommand(command, "gpt-4o", false);
                     break;
-                case "unlock":
-                    if (command.User.Id.ToString() == _adminID)
-                    {
-                        await DbStorage.AddChannel(command.Channel.Id.ToString());
-                        await command.RespondAsync("Channel has been unlocked");
-                    }
-                    else
-                    {
-                        await command.RespondAsync("You do not have permission to use this command");
-                    }
+                case "asko1":
+                    await ProcessChatGPTCommand(command, "o1-preview");
                     break;
-                case "lock":
-                    if (command.User.Id.ToString() == _adminID)
-                    {
-                        await DbStorage.RemoveChannel(command.Channel.Id.ToString());
-                        await command.RespondAsync("Channel has been locked");
-                    }
-                    else
-                    {
-                        await command.RespondAsync("You do not have permission to use this command");
-                    }
-                    break;
-                case "reportbug":
-                    string bugDescription = command.Data.Options.First().Value.ToString();
-                    await sendManual($"Bug report: {bugDescription}", "1243585805180735558");
-                    await command.RespondAsync("Bug report has been sent");
+                case "timeout":
+                    await HandleTimeoutCommand(command);
                     break;
             }
-      
         }
 
-        public async Task sendManual(string message, string channelID)
+        private async Task ProcessChatGPTCommand(SocketSlashCommand command, string model, bool context = true)
         {
-            foreach(var guild in _client.Guilds)
+            await command.DeferAsync(); // Acknowledge the command
+
+            var question = command.Data.Options.First().Value.ToString();
+
+            // Prepare the message history
+            var messages = new List<ChatMessage>();
+
+            // Optionally, you can add system prompts or previous context
+            var initialPrompt = await GoogleSecrets.GetPrompt();
+            if (!string.IsNullOrEmpty(initialPrompt))
             {
-                if (guild.GetTextChannel(ulong.Parse(channelID)) != null)
+                messages.Add(new SystemChatMessage(initialPrompt));
+            }
+
+            // Add the user's question
+            messages.Add(new UserChatMessage(question));
+
+            var chat = _openAiClient.GetChatClient(model);
+
+            // Send the messages to ChatGPT
+            var result = await chat.CompleteChatAsync(messages);
+            var chatResponse = new AssistantChatMessage(result);
+
+            if (chatResponse != null && chatResponse.Content.Count > 0)
+            {
+                var responseText = chatResponse.Content[0].Text;
+
+                // Split response into chunks if necessary
+                var responseChunks = SplitMessage(responseText);
+
+                // Send response chunks
+                foreach (var chunk in responseChunks)
                 {
-                    await guild.GetTextChannel(ulong.Parse(channelID)).SendMessageAsync(message);
+                    await command.FollowupAsync(chunk);
                 }
+
+                // Save conversation to Firestore
+                var userMessage = new ConversationEntry
+                {
+                    ChannelId = command.Channel.Id.ToString(),
+                    UserId = command.User.Id.ToString(),
+                    UserName = command.User.Username,
+                    ServerId = (command.Channel as SocketGuildChannel)?.Guild.Id.ToString(),
+                    ServerName = (command.Channel as SocketGuildChannel)?.Guild.Name,
+                    Content = question,
+                    Role = "user",
+                    Timestamp = Timestamp.FromDateTime(DateTime.UtcNow)
+                };
+
+                var botMessage = new ConversationEntry
+                {
+                    ChannelId = command.Channel.Id.ToString(),
+                    UserId = _client.CurrentUser.Id.ToString(),
+                    UserName = _client.CurrentUser.Username,
+                    ServerId = (command.Channel as SocketGuildChannel)?.Guild.Id.ToString(),
+                    ServerName = (command.Channel as SocketGuildChannel)?.Guild.Name,
+                    Content = responseText,
+                    Role = "assistant",
+                    Timestamp = Timestamp.FromDateTime(DateTime.UtcNow)
+                };
+
+                await _dbStorage.SaveConversationAsync(userMessage, botMessage);
             }
-        }
-
-        public async Task sendDM(string message, string userID)
-        {
-            var user = _client.GetUser(ulong.Parse(userID));
-            await user.SendMessageAsync(message);
-        }
-
-        private static IEnumerable<string> SplitMessage(string message, int chunkSize)
-        {
-            for (int i = 0; i < message.Length; i += chunkSize)
+            else
             {
-                yield return message.Substring(i, Math.Min(chunkSize, message.Length - i));
+                await command.FollowupAsync("I'm sorry, I couldn't generate a response.");
             }
         }
 
+        private List<string> SplitMessage(string message)
+        {
+            var chunks = new List<string>();
+
+            for (int i = 0; i < message.Length; i += DiscordMessageLimit)
+            {
+                int length = Math.Min(DiscordMessageLimit, message.Length - i);
+                chunks.Add(message.Substring(i, length));
+            }
+
+            return chunks;
+        }
+
+        private async Task HandleTimeoutCommand(SocketSlashCommand command)
+        {
+            await command.DeferAsync(); // Acknowledge the command
+
+            // Authorization Check
+            if (command.User.Id.ToString() != _authorizedUserId)
+            {
+                await command.FollowupAsync("You are not authorized to use this command.");
+                return;
+            }
+
+            var userIdOption = command.Data.Options.FirstOrDefault(o => o.Name == "userid")?.Value?.ToString();
+            var durationOption = command.Data.Options.FirstOrDefault(o => o.Name == "duration")?.Value;
+
+            if (userIdOption == null || durationOption == null)
+            {
+                await command.FollowupAsync("Invalid arguments.");
+                return;
+            }
+
+            if (!ulong.TryParse(userIdOption, out ulong userId))
+            {
+                await command.FollowupAsync("Invalid user ID.");
+                return;
+            }
+
+            var duration = Convert.ToInt32(durationOption);
+
+            var guild = (command.Channel as SocketGuildChannel)?.Guild;
+            if (guild == null)
+            {
+                await command.FollowupAsync("Command must be used in a server.");
+                return;
+            }
+
+            var user = guild.GetUser(userId);
+            if (user == null)
+            {
+                await command.FollowupAsync("User not found.");
+                return;
+            }
+
+            try
+            {
+                await user.SetTimeOutAsync(TimeSpan.FromSeconds(duration));
+                await command.FollowupAsync($"User {user.Username} has been timed out for {duration} seconds.");
+            }
+            catch (Exception ex)
+            {
+                await command.FollowupAsync($"Failed to timeout user: {ex.Message}");
+            }
+        }
     }
 }

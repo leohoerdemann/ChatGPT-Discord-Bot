@@ -1,99 +1,84 @@
 ﻿using Google.Cloud.Firestore;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using ChatGPT_Discord_Bot;
+using OpenAI.Chat;
 
 namespace ChatGPT_Discord_Bot
 {
-    public static class DbStorage
+    public class DbStorage
     {
-        public static FirestoreDb db = FirestoreDb.Create("magnetic-icon-424305-m8");
+        private readonly FirestoreDb _firestoreDb;
 
-
-        public static async Task AddChannel(string channelID)
+        public DbStorage()
         {
-            DocumentReference docRef = db.Collection("channels").Document(channelID);
-            Dictionary<string, object> data = new Dictionary<string, object>
+            var projectId = "magnetic-icon-424305-m8"; // Replace with your Google Cloud project ID
+            _firestoreDb = FirestoreDb.Create(projectId);
+        }
+
+        public async Task<List<ChatMessage>> GetContextMessagesAsync(ulong channelId)
+        {
+            var query = _firestoreDb.Collection("messages")
+                .WhereEqualTo("ChannelId", channelId.ToString())
+                .OrderByDescending("Timestamp")
+                .Limit(20);
+
+            var snapshot = await query.GetSnapshotAsync();
+            var messages = new List<ChatMessage>();
+
+            foreach (var doc in snapshot.Documents.Reverse())
             {
-                { "channelID", channelID }
-            };
-            await docRef.SetAsync(data);
-        }
-
-        public static async Task RemoveChannel(string channelID)
-        {
-            DocumentReference docRef = db.Collection("channels").Document(channelID);
-            await docRef.DeleteAsync();
-        }
-
-        public static async Task<bool> CheckChannel(string channelID)
-        {
-            DocumentReference docRef = db.Collection("channels").Document(channelID);
-            DocumentSnapshot snapshot = await docRef.GetSnapshotAsync();
-            return snapshot.Exists;
-        }
-
-        public static async Task BanUser(string userID)
-        {
-            DocumentReference docRef = db.Collection("ban_users").Document(userID);
-            Dictionary<string, object> data = new Dictionary<string, object>
-            {
-                { "userID", userID }
-            };
-            await docRef.SetAsync(data);
-        }
-
-        public static async Task UnbanUser(string userID)
-        {
-            DocumentReference docRef = db.Collection("ban_users").Document(userID);
-            await docRef.DeleteAsync();
-        }
-
-        public static async Task<bool> CheckBanUser(string userID)
-        {
-            DocumentReference docRef = db.Collection("ban_users").Document(userID);
-            DocumentSnapshot snapshot = await docRef.GetSnapshotAsync();
-            return snapshot.Exists;
-        }
-
-        public static async Task AddMessage(string channelID, string User, string content)
-        {
-            DocumentReference documentRef = db.Collection("messages").Document();
-            Dictionary<string, object> data = new Dictionary<string, object>
-            {
-                { "channelID", channelID },
-                { "User", User },
-                { "content", content },
-                { "timestamp", FieldValue.ServerTimestamp }
-            };
-
-            await documentRef.SetAsync(data);
-        }   
-
-        public static async Task<List<string>> GetMessages(string channelID)
-        {
-            Query query = db.Collection("messages").WhereEqualTo("channelID", channelID).OrderBy("timestamp").Limit(15);
-            QuerySnapshot querySnapshot = await query.GetSnapshotAsync();
-            List<string> messages = new List<string>();
-
-            foreach (DocumentSnapshot documentSnapshot in querySnapshot.Documents)
-            {
-                Dictionary<string, object> document = documentSnapshot.ToDictionary();
-                string message = document["User"] + ": " + document["content"];
-                messages.Add(message);
+                var role = doc.GetValue<string>("Role");
+                var content = doc.GetValue<string>("Content");
+                if (role == "User")
+                {
+                    var message = new UserChatMessage(content);
+                    messages.Add(message);
+                }
+                else
+                {
+                    var message = new AssistantChatMessage(content);
+                    messages.Add(message);
+                }
             }
 
             return messages;
         }
 
-        public static async Task RemoveOldMessages(string channelID)
+        public async Task SaveConversationAsync(ConversationEntry userMessage, ConversationEntry botMessage)
         {
-            // remove messages older than 20 minutes
-            Query query = db.Collection("messages").WhereEqualTo("channelID", channelID).WhereGreaterThan("timestamp", DateTime.UtcNow.AddMinutes(-20));
-            QuerySnapshot querySnapshot = await query.GetSnapshotAsync();
-            
-            foreach (DocumentSnapshot documentSnapshot in querySnapshot.Documents)
-            {
-                await documentSnapshot.Reference.DeleteAsync();
-            }
+            var batch = _firestoreDb.StartBatch();
+            batch.Create(_firestoreDb.Collection("messages").Document(), userMessage.ToDictionary());
+            batch.Create(_firestoreDb.Collection("messages").Document(), botMessage.ToDictionary());
+            await batch.CommitAsync();
         }
 
+        public async Task<object> GetStatsAsync()
+        {
+            var messagesCollection = _firestoreDb.Collection("messages");
+            var snapshot = await messagesCollection.GetSnapshotAsync();
+
+            var totalMessages = snapshot.Count;
+
+            var messagesByUser = snapshot.Documents
+                .Where(doc => doc.ContainsField("UserName"))
+                .GroupBy(doc => doc.GetValue<string>("UserName"))
+                .Select(group => new { UserName = group.Key, MessageCount = group.Count() })
+                .ToList();
+
+            var messagesByServer = snapshot.Documents
+                .Where(doc => doc.ContainsField("ServerName"))
+                .GroupBy(doc => doc.GetValue<string>("ServerName"))
+                .Select(group => new { ServerName = group.Key, MessageCount = group.Count() })
+                .ToList();
+
+            return new
+            {
+                TotalMessages = totalMessages,
+                MessagesByUser = messagesByUser,
+                MessagesByServer = messagesByServer
+            };
+        }
     }
 }
