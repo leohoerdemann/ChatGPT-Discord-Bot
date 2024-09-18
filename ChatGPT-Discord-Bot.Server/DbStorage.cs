@@ -27,13 +27,25 @@ namespace ChatGPT_Discord_Bot.Server
 
 
         // Message model
+        [FirestoreData]
         public class Message
         {
+            [FirestoreProperty]
             public string Content { get; set; }
+
+            [FirestoreProperty]
             public string Sender { get; set; }
+
+            [FirestoreProperty]
             public string Server { get; set; }
+
+            [FirestoreProperty]
             public string Channel { get; set; }
+
+            [FirestoreProperty]
             public DateTime SentAt { get; set; }
+
+            [FirestoreProperty]
             public bool SentByUser { get; set; } // Added boolean field to indicate if the message was sent by the user
         }
 
