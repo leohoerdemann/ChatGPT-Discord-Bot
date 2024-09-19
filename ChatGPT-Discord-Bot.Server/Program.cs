@@ -35,7 +35,7 @@ namespace ChatGPT_Discord_Bot.Server
             {
                 leoBot.SetStatus(status);
                 return Results.Ok();
-            });
+            }).WithOpenApi();
 
             var dbStorage = leoBot.DbStorage;
 
@@ -51,7 +51,13 @@ namespace ChatGPT_Discord_Bot.Server
             {
                 dbStorage.ClearStatistics();
                 return Results.Ok("Statistics cleared.");
-            });
+            }).WithOpenApi();
+
+            app.MapPost("/api/db/clear", () =>
+            {
+                dbStorage.cleardb();
+                return Results.Ok("Database cleared.");
+            }).WithOpenApi();
 
 
             app.Run();

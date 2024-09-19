@@ -27,25 +27,17 @@ namespace ChatGPT_Discord_Bot.Server
 
 
         // Message model
-        [FirestoreData]
         public class Message
         {
-            [FirestoreProperty]
             public string Content { get; set; }
 
-            [FirestoreProperty]
             public string Sender { get; set; }
 
-            [FirestoreProperty]
             public string Server { get; set; }
-
-            [FirestoreProperty]
             public string Channel { get; set; }
 
-            [FirestoreProperty]
             public DateTime SentAt { get; set; }
 
-            [FirestoreProperty]
             public bool SentByUser { get; set; } // Added boolean field to indicate if the message was sent by the user
         }
 
@@ -81,7 +73,15 @@ namespace ChatGPT_Discord_Bot.Server
             Query query = messagesRef.WhereEqualTo("Channel", channel).OrderBy("SentAt");
             QuerySnapshot snapshot = await query.GetSnapshotAsync();
 
-            return snapshot.Documents.Select(doc => doc.ConvertTo<Message>()).ToList();
+            return snapshot.Documents.Select(doc => new Message
+            {
+                Content = doc.GetValue<string>("Content"),
+                Sender = doc.GetValue<string>("Sender"),
+                Server = doc.GetValue<string>("Server"),
+                Channel = doc.GetValue<string>("Channel"),
+                SentAt = doc.GetValue<DateTime>("SentAt"),
+                SentByUser = doc.GetValue<bool>("SentByUser")
+            }).ToList();
         }
 
         // Enforce message limits per user per channel
@@ -127,6 +127,16 @@ namespace ChatGPT_Discord_Bot.Server
             _messagesPerUser.Clear();
             _messagesPerChannel.Clear();
             _totalMessages = 0;
+        }
+
+        public async void cleardb()
+        {
+            // clear all records
+            QuerySnapshot snapshot = await _firestoreDb.Collection("messages").GetSnapshotAsync();
+            foreach (DocumentSnapshot document in snapshot.Documents)
+            {
+                await document.Reference.DeleteAsync();
+            }
         }
 
         // Get server uptime
