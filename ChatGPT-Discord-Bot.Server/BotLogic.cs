@@ -358,93 +358,99 @@ namespace ChatGPT_Discord_Bot.Server
         private async Task ProcessChatGPTCommand(SocketSlashCommand command, string model, bool context = true)
         {
             await command.DeferAsync(); // Acknowledge the command
-
-            // Check if the user is timed out
-            if (_timeOuts.TryGetValue(command.User.Id.ToString(), out DateTime timeout))
+            try
             {
-                if (DateTime.Now < timeout)
+                // Check if the user is timed out
+                if (_timeOuts.TryGetValue(command.User.Id.ToString(), out DateTime timeout))
                 {
-                    await command.FollowupAsync("Sorry you are currently timed out");
-                    return;
-                }
-                else
-                {
-                    _timeOuts.Remove(command.User.Id.ToString());
-                }
-            }
-
-            var question = command.Data.Options.First().Value.ToString();
-
-            // Prepare the message history
-            var messages = new List<ChatMessage>();
-
-            if (context)
-            {
-                // Optionally, you can add system prompts or previous context
-                if (!string.IsNullOrEmpty(initialPrompt))
-                {
-                    messages.Add(new SystemChatMessage(initialPrompt));
-                }
-
-                var storageMessages = await DbStorage.GetMessagesByChannelAsync(command.Channel.Name);
-                foreach (var message in storageMessages)
-                {
-                    if (message.SentByUser)
+                    if (DateTime.Now < timeout)
                     {
-                        messages.Add(new UserChatMessage($"{message.Sender} at {message.SentAt.ToString()} said: {message.Content}"));
+                        await command.FollowupAsync("Sorry you are currently timed out");
+                        return;
                     }
                     else
                     {
-                        messages.Add(new AssistantChatMessage($"{message.SentAt.ToString()} : {message.Content}"));
+                        _timeOuts.Remove(command.User.Id.ToString());
                     }
                 }
-            }
 
-            // Add the user's question
-            messages.Add(new UserChatMessage($"{command.User.Username} said: {question}"));
+                var question = command.Data.Options.First().Value.ToString();
 
-            var chat = _openAIClient.GetChatClient(model);
+                // Prepare the message history
+                var messages = new List<ChatMessage>();
 
-            // Send the messages to ChatGPT
-            var result = await chat.CompleteChatAsync(messages);
-            var chatResponse = new AssistantChatMessage(result);
-
-            if (chatResponse != null && chatResponse.Content.Count > 0)
-            {
-                var responseText = chatResponse.Content[0].Text;
-
-                // Split response into chunks if necessary
-                var responseChunks = SplitMessage(responseText);
-
-                DbStorage.AddMessageAsync(new DbStorage.Message
+                if (context)
                 {
-                    Content = question,
-                    Sender = command.User.Username,
-                    Server = (command.Channel as SocketGuildChannel)?.Guild.Name,
-                    Channel = command.Channel.Name,
-                    SentAt = DateTime.Now,
-                    SentByUser = true
-                });
+                    // Optionally, you can add system prompts or previous context
+                    if (!string.IsNullOrEmpty(initialPrompt))
+                    {
+                        messages.Add(new SystemChatMessage(initialPrompt));
+                    }
 
-                DbStorage.AddMessageAsync(new DbStorage.Message
-                {
-                    Content = responseText,
-                    Sender = model,
-                    Server = (command.Channel as SocketGuildChannel)?.Guild.Name,
-                    Channel = command.Channel.Name,
-                    SentAt = DateTime.Now,
-                    SentByUser = false
-                });
+                    var storageMessages = await DbStorage.GetMessagesByChannelAsync(command.Channel.Name);
+                    foreach (var message in storageMessages)
+                    {
+                        if (message.SentByUser)
+                        {
+                            messages.Add(new UserChatMessage($"{message.Sender} at {message.SentAt.ToString()} said: {message.Content}"));
+                        }
+                        else
+                        {
+                            messages.Add(new AssistantChatMessage($"{message.SentAt.ToString()} : {message.Content}"));
+                        }
+                    }
+                }
 
-                // Send response chunks
-                foreach (var chunk in responseChunks)
+                // Add the user's question
+                messages.Add(new UserChatMessage($"{command.User.Username} said: {question}"));
+
+                var chat = _openAIClient.GetChatClient(model);
+
+                // Send the messages to ChatGPT
+                var result = await chat.CompleteChatAsync(messages);
+                var chatResponse = new AssistantChatMessage(result);
+
+                if (chatResponse != null && chatResponse.Content.Count > 0)
                 {
-                    await command.FollowupAsync(chunk);
+                    var responseText = chatResponse.Content[0].Text;
+
+                    // Split response into chunks if necessary
+                    var responseChunks = SplitMessage(responseText);
+
+                    DbStorage.AddMessageAsync(new DbStorage.Message
+                    {
+                        Content = question,
+                        Sender = command.User.Username,
+                        Server = (command.Channel as SocketGuildChannel)?.Guild.Name,
+                        Channel = command.Channel.Name,
+                        SentAt = DateTime.Now,
+                        SentByUser = true
+                    });
+
+                    DbStorage.AddMessageAsync(new DbStorage.Message
+                    {
+                        Content = responseText,
+                        Sender = model,
+                        Server = (command.Channel as SocketGuildChannel)?.Guild.Name,
+                        Channel = command.Channel.Name,
+                        SentAt = DateTime.Now,
+                        SentByUser = false
+                    });
+
+                    // Send response chunks
+                    foreach (var chunk in responseChunks)
+                    {
+                        await command.FollowupAsync(chunk);
+                    }
+                }
+                else
+                {
+                    await command.FollowupAsync("I'm sorry, I couldn't generate a response.");
                 }
             }
-            else
+            catch (Exception ex)
             {
-                await command.FollowupAsync("I'm sorry, I couldn't generate a response.");
+                await command.FollowupAsync($"Failed to process command: {ex.Message}");
             }
         }
 
