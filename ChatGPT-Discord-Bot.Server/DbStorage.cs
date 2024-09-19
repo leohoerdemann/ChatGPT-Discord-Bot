@@ -73,15 +73,21 @@ namespace ChatGPT_Discord_Bot.Server
             Query query = messagesRef.WhereEqualTo("Channel", channel).OrderBy("SentAt");
             QuerySnapshot snapshot = await query.GetSnapshotAsync();
 
-            return snapshot.Documents.Select(doc => new Message
+            List<Message> messages = new List<Message>();
+            foreach (var document in snapshot.Documents)
             {
-                Content = doc.GetValue<string>("Content"),
-                Sender = doc.GetValue<string>("Sender"),
-                Server = doc.GetValue<string>("Server"),
-                Channel = doc.GetValue<string>("Channel"),
-                SentAt = doc.GetValue<DateTime>("SentAt"),
-                SentByUser = doc.GetValue<bool>("SentByUser")
-            }).ToList();
+                messages.Add(new Message
+                {
+                    Content = document.GetValue<string>("Content"),
+                    Sender = document.GetValue<string>("Sender"),
+                    Server = document.GetValue<string>("Server"),
+                    Channel = document.GetValue<string>("Channel"),
+                    SentAt = document.GetValue<DateTime>("SentAt"),
+                    SentByUser = document.GetValue<bool>("SentByUser")
+                });
+            }
+
+            return messages;
         }
 
         // Enforce message limits per user per channel
