@@ -245,7 +245,10 @@ namespace ChatGPT_Discord_Bot.Server
                     await ProcessChatGPTCommand(command, "gpt-4o", false);
                     break;
                 case "asko1":
-                    await ProcessChatGPTCommand(command, "o1-preview");
+                    await ProcessChatGPTCommand(command, "o1-mini");
+                    break;
+                case "asko1blank":
+                    await ProcessChatGPTCommand(command, "o1-mini", false);
                     break;
                 case "timeout":
                     await HandleTimeoutCommand(command);
