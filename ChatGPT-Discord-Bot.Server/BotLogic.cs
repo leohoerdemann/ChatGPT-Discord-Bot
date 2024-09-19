@@ -245,10 +245,14 @@ namespace ChatGPT_Discord_Bot.Server
                     await ProcessChatGPTCommand(command, "gpt-4o", false);
                     break;
                 case "asko1":
-                    await ProcessChatGPTCommand(command, "o1-mini");
+                    await command.DeferAsync(); // Acknowledge the command
+                    await command.FollowupAsync("Model comming soon. This command is disabled for now");
+                    //await ProcessChatGPTCommand(command, "o1-mini");
                     break;
                 case "asko1blank":
-                    await ProcessChatGPTCommand(command, "o1-mini", false);
+                    await command.DeferAsync(); // Acknowledge the command
+                    await command.FollowupAsync("Model comming soon. This command is disabled for now");
+                    //await ProcessChatGPTCommand(command, "o1-mini", false);
                     break;
                 case "timeout":
                     await HandleTimeoutCommand(command);
