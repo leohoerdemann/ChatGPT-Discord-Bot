@@ -403,7 +403,7 @@ namespace ChatGPT_Discord_Bot.Server
                         }
                         else
                         {
-                            messages.Add(new AssistantChatMessage($"{message.SentAt.ToString()} : {message.Content}"));
+                            messages.Add(new AssistantChatMessage($"({message.SentAt.ToString()}) {message.Content}"));
                         }
                     }
                 }
