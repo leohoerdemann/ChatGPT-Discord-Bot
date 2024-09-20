@@ -50,23 +50,26 @@ namespace ChatGPT_Discord_Bot.Server
 
             Console.WriteLine($"{arg.Author} in {(arg.Channel as SocketGuildChannel)?.Guild.Name},{arg.Channel}: {arg.Content}");
 
-            // Check if the user is timed out
-            if (_timeOuts.TryGetValue(arg.Author.Id.ToString(), out DateTime timeout))
-            {
-                if (DateTime.Now < timeout)
-                {
-                    await arg.Channel.SendMessageAsync("Sorry you are currently timed out");
-                    return;
-                }
-                else
-                {
-                    _timeOuts.Remove(arg.Author.Id.ToString());
-                }
-            }
 
             // Check if the message starts with a mention of the bot
             if (arg.MentionedUsers.Any(user => user.Id == _client.CurrentUser.Id))
             {
+
+                // Check if the user is timed out
+                if (_timeOuts.TryGetValue(arg.Author.Id.ToString(), out DateTime timeout))
+                {
+                    if (DateTime.Now < timeout)
+                    {
+                        await arg.Channel.SendMessageAsync("Sorry you are currently timed out");
+                        return;
+                    }
+                    else
+                    {
+                        _timeOuts.Remove(arg.Author.Id.ToString());
+                    }
+                }
+
+
                 var question = arg.Content.Replace($"<@{_client.CurrentUser.Id}>", "").Trim();
 
                 // Prepare the message history
