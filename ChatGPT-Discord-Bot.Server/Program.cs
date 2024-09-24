@@ -59,6 +59,12 @@ namespace ChatGPT_Discord_Bot.Server
                 return Results.Ok("Database cleared.");
             }).WithOpenApi();
 
+            app.MapPost("/api/updateprompt", () =>
+            {
+                leoBot.UpdatePrompt();
+                return Results.Ok("Prompt updated.");
+            }).WithOpenApi();
+
 
             app.Run();
         }

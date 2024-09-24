@@ -3,6 +3,7 @@ using Discord.Audio;
 using Discord.WebSocket;
 using OpenAI;
 using OpenAI.Chat;
+using static Google.Cloud.Firestore.V1.StructuredAggregationQuery.Types.Aggregation.Types;
 
 namespace ChatGPT_Discord_Bot.Server
 {
@@ -21,6 +22,8 @@ namespace ChatGPT_Discord_Bot.Server
 
         private Dictionary<string , DateTime> _timeOuts = new Dictionary<string, DateTime>();
 
+        private Dictionary<string, int> _userLimits = new Dictionary<string, int>();
+
 
         public BotLogic()
         {
@@ -38,6 +41,11 @@ namespace ChatGPT_Discord_Bot.Server
             initialPrompt = GoogleSecrets.GetPrompt().Result;
         }
 
+        public void UpdatePrompt()
+        {
+            initialPrompt = GoogleSecrets.GetPrompt().Result;
+        }
+
         public async Task SetStatus(string status)
         {
             await _client.SetActivityAsync(new Game(status));
@@ -45,15 +53,17 @@ namespace ChatGPT_Discord_Bot.Server
 
         private async Task MessageReceivedHandler(SocketMessage arg)
         {
-            // Check if the message is from a user and not a bot
-            if (arg.Author.IsBot) return;
-
             Console.WriteLine($"{arg.Author} in {(arg.Channel as SocketGuildChannel)?.Guild.Name},{arg.Channel}: {arg.Content}");
 
+            // Check if the message is from a user and not a bot
+            if (arg.Author.IsBot) return;
 
             // Check if the message starts with a mention of the bot
             if (arg.MentionedUsers.Any(user => user.Id == _client.CurrentUser.Id))
             {
+
+
+                DbStorage.updateStats(arg.Author.ToString(), arg.Channel.Name);
 
                 // Check if the user is timed out
                 if (_timeOuts.TryGetValue(arg.Author.Id.ToString(), out DateTime timeout))
@@ -69,8 +79,19 @@ namespace ChatGPT_Discord_Bot.Server
                     }
                 }
 
-
-                var question = arg.Content.Replace($"<@{_client.CurrentUser.Id}>", "").Trim();
+                // Check if the user has a message limit
+                if (_userLimits.TryGetValue(arg.Author.Id.ToString(), out int limit))
+                {
+                    if(limit <= 0)
+                    {
+                        await arg.Channel.SendMessageAsync("Sorry you have reached your message limit");
+                        return;
+                    }
+                    else
+                    {
+                        _userLimits[arg.Author.Id.ToString()] = limit - 1;
+                    }
+                }
 
                 // Prepare the message history
                 var messages = new List<ChatMessage>();
@@ -81,8 +102,26 @@ namespace ChatGPT_Discord_Bot.Server
                     messages.Add(new SystemChatMessage(initialPrompt));
                 }
 
-                // Add the user's question
-                messages.Add(new UserChatMessage(question));
+                var channel = arg.Channel as SocketGuildChannel;
+
+                messages.Add(new SystemChatMessage($"You are currently in the {channel.Name} channel in the {channel.Guild.Name} server"));
+
+
+                var last20messages = await arg.Channel.GetMessagesAsync(20).FlattenAsync();
+
+                foreach (var message in last20messages)
+                {
+                    if (message.Author.IsBot)
+                    {
+                        messages.Add(new AssistantChatMessage($"({message.Timestamp.ToString()}) {message.Content}"));
+                    }
+                    else
+                    {
+                        var question = arg.Content.Replace($"<@{_client.CurrentUser.Id}>", "").Trim();
+
+                        messages.Add(new UserChatMessage($"{message.Author.Username} at {message.Timestamp.ToString()} said: {question}"));
+                    }
+                }
 
                 var chat = _openAIClient.GetChatClient("gpt-4o");
 
@@ -166,6 +205,17 @@ namespace ChatGPT_Discord_Bot.Server
                         .WithName("removetimeout")
                         .WithDescription("remove timeout on a user (Authorized users only)")
                         .AddOption("userid", ApplicationCommandOptionType.String, "User ID to timeout", isRequired: true)
+                        .Build(),
+                    new SlashCommandBuilder()
+                        .WithName("addtuserlimit")
+                        .WithDescription("Add a user limit to a user (Authorized users only)")
+                        .AddOption("userid", ApplicationCommandOptionType.String, "User ID to limit", isRequired: true)
+                        .AddOption("limit", ApplicationCommandOptionType.Integer, "Limit", isRequired: true)
+                        .Build(),
+                    new SlashCommandBuilder()
+                        .WithName("removetuserlimit")
+                        .WithDescription("Remove a user limit to a user (Authorized users only)")
+                        .AddOption("userid", ApplicationCommandOptionType.String, "User ID to limit", isRequired: true)
                         .Build()
                     };
 
@@ -265,6 +315,14 @@ namespace ChatGPT_Discord_Bot.Server
                     _timeOuts.Remove(command.User.Id.ToString());
                     await command.FollowupAsync("Timeout removed");
                     break;
+                case "addtuserlimit":
+                    await command.DeferAsync(); // Acknowledge the command
+                    AddUserLimit(command);
+                    break;
+                case "removetuserlimit":
+                    await command.DeferAsync(); // Acknowledge the command
+                    _userLimits.Remove(command.Data.Options.First().Value.ToString());
+                    break;
                 case "status":
                     await command.DeferAsync(); // Acknowledge the command
                     await SetStatus(command.Data.Options.First().Value.ToString());
@@ -281,10 +339,40 @@ namespace ChatGPT_Discord_Bot.Server
             }
         }
 
+        private void AddUserLimit(SocketSlashCommand command)
+        {
+            // Authorization Check
+            if (!IsAuthorized((SocketGuildUser)command.User))
+            {
+                command.FollowupAsync("You are not authorized to use this command.");
+                return;
+            }
+
+            var userIdOption = command.Data.Options.FirstOrDefault(o => o.Name == "userid")?.Value?.ToString();
+            var limitOption = command.Data.Options.FirstOrDefault(o => o.Name == "limit")?.Value;
+
+            if (userIdOption == null || limitOption == null)
+            {
+                command.FollowupAsync("Invalid arguments.");
+                return;
+            }
+
+            if (!ulong.TryParse(userIdOption, out ulong userId))
+            {
+                command.FollowupAsync("Invalid user ID.");
+                return;
+            }
+
+            var limit = Convert.ToInt32(limitOption);
+
+            _userLimits[userIdOption] = limit;
+            command.FollowupAsync($"User {userId} has been limited to {limit} messages.");
+        }
+
         private async Task SendMessage(SocketSlashCommand command)
         {
             // Authorization Check
-            if (command.User.Id.ToString() != _authorizedUserId)
+            if (!IsAuthorized((SocketGuildUser)command.User))
             {
                 await command.FollowupAsync("You are not authorized to use this command.");
                 return;
@@ -326,7 +414,7 @@ namespace ChatGPT_Discord_Bot.Server
         private async Task SendDM(SocketSlashCommand command)
         {
             // Authorization Check
-            if (command.User.Id.ToString() != _authorizedUserId)
+            if (!IsAuthorized((SocketGuildUser)command.User))
             {
                 await command.FollowupAsync("You are not authorized to use this command.");
                 return;
@@ -384,6 +472,20 @@ namespace ChatGPT_Discord_Bot.Server
                     }
                 }
 
+                // Check if the user has a message limit
+                if (_userLimits.TryGetValue(command.User.Id.ToString(), out int limit))
+                {
+                    if (limit <= 0)
+                    {
+                        await command.Channel.SendMessageAsync("Sorry you have reached your message limit");
+                        return;
+                    }
+                    else
+                    {
+                        _userLimits[command.User.Id.ToString()] = limit - 1;
+                    }
+                }
+
                 var question = command.Data.Options.First().Value.ToString();
 
                 // Prepare the message history
@@ -396,6 +498,10 @@ namespace ChatGPT_Discord_Bot.Server
                     {
                         messages.Add(new SystemChatMessage(initialPrompt));
                     }
+
+                    var channel = command.Channel as SocketGuildChannel;
+
+                    messages.Add(new SystemChatMessage($"You are currently in the {channel.Name} channel in the {channel.Guild.Name} server"));
 
                     var storageMessages = await DbStorage.GetMessagesByChannelAsync(command.Channel.Name);
                     foreach (var message in storageMessages)
@@ -482,7 +588,7 @@ namespace ChatGPT_Discord_Bot.Server
             await command.DeferAsync(); // Acknowledge the command
 
             // Authorization Check
-            if (command.User.Id.ToString() != _authorizedUserId)
+            if (!IsAuthorized((SocketGuildUser)command.User))
             {
                 await command.FollowupAsync("You are not authorized to use this command.");
                 return;
@@ -529,5 +635,12 @@ namespace ChatGPT_Discord_Bot.Server
                 await command.FollowupAsync($"Failed to timeout user: {ex.Message}");
             }
         }
+
+
+        private bool IsAuthorized(SocketGuildUser user)
+        {
+            return user.Id.ToString() == _authorizedUserId || user.GuildPermissions.ManageGuild;
+        }
+
     }
 }

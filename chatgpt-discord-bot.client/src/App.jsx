@@ -40,7 +40,7 @@ const App = () => {
     // UseEffect to set an interval to update the data every second
     useEffect(() => {
         fetchData(); // Initial fetch
-        const interval = setInterval(fetchData, 1000); // Update every second
+        const interval = setInterval(fetchData, 3000); // Update every second
         return () => clearInterval(interval); // Cleanup interval on unmount
     }, []);
 

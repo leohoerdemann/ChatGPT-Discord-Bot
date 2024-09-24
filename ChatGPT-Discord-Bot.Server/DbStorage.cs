@@ -127,6 +127,14 @@ namespace ChatGPT_Discord_Bot.Server
 
         public Dictionary<string, int> GetMessagesPerChannel() => new Dictionary<string, int>(_messagesPerChannel);
 
+        public void updateStats(string channel, string user)
+        {
+            // Update high-level statistics
+            _totalMessages++;
+            _messagesPerChannel.AddOrUpdate(channel, 1, (key, value) => value + 1);
+            _messagesPerUser.AddOrUpdate(user, 1, (key, value) => value + 1);
+        }
+
         // Clear all cached statistics
         public void ClearStatistics()
         {
