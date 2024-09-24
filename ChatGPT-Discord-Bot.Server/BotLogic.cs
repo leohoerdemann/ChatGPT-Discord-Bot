@@ -53,7 +53,15 @@ namespace ChatGPT_Discord_Bot.Server
 
         private async Task MessageReceivedHandler(SocketMessage arg)
         {
-            Console.WriteLine($"{arg.Author} in {(arg.Channel as SocketGuildChannel)?.Guild.Name},{arg.Channel}: {arg.Content}");
+
+            if (arg.Channel.GetChannelType() == ChannelType.DM)
+            {
+                Console.WriteLine($"{arg.Author} in DM: {arg.Content}");
+            }
+            else
+            {
+                Console.WriteLine($"{arg.Author} in {(arg.Channel as SocketGuildChannel)?.Guild.Name},{arg.Channel}: {arg.Content}");
+            }
 
             // Check if the message is from a user and not a bot
             if (arg.Author.IsBot) return;
@@ -82,7 +90,7 @@ namespace ChatGPT_Discord_Bot.Server
                 // Check if the user has a message limit
                 if (_userLimits.TryGetValue(arg.Author.Id.ToString(), out int limit))
                 {
-                    if(limit <= 0)
+                    if (limit <= 0)
                     {
                         await arg.Channel.SendMessageAsync("Sorry you have reached your message limit");
                         return;
@@ -104,8 +112,14 @@ namespace ChatGPT_Discord_Bot.Server
 
                 var channel = arg.Channel as SocketGuildChannel;
 
-                messages.Add(new SystemChatMessage($"You are currently in the {channel.Name} channel in the {channel.Guild.Name} server"));
-
+                if (arg.Channel.GetChannelType() == ChannelType.DM)
+                {
+                    messages.Add(new SystemChatMessage($"You are currently in a DM with the {arg.Author.Username.ToString()}"));
+                }
+                else
+                {
+                    messages.Add(new SystemChatMessage($"You are currently in the {channel.Name} channel in the {channel.Guild.Name} server"));
+                }
 
                 var last20messages = await arg.Channel.GetMessagesAsync(20).FlattenAsync();
 
@@ -501,8 +515,14 @@ namespace ChatGPT_Discord_Bot.Server
 
                     var channel = command.Channel as SocketGuildChannel;
 
-                    messages.Add(new SystemChatMessage($"You are currently in the {channel.Name} channel in the {channel.Guild.Name} server"));
-
+                    if (command.Channel.GetChannelType() == ChannelType.DM)
+                    {
+                        messages.Add(new SystemChatMessage($"You are currently in a DM with the {command.User.Username.ToString()}"));
+                    }
+                    else
+                    {
+                        messages.Add(new SystemChatMessage($"You are currently in the {channel.Name} channel in the {channel.Guild.Name} server"));
+                    }
                     var storageMessages = await DbStorage.GetMessagesByChannelAsync(command.Channel.Name);
                     foreach (var message in storageMessages)
                     {
