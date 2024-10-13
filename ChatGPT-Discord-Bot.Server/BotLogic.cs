@@ -71,7 +71,7 @@ namespace ChatGPT_Discord_Bot.Server
             {
 
 
-                DbStorage.updateStats(arg.Author.ToString(), arg.Channel.Name);
+                DbStorage.updateStats(arg.Channel.Name.ToString(), arg.Author.ToString());
 
                 // Check if the user is timed out
                 if (_timeOuts.TryGetValue(arg.Author.Id.ToString(), out DateTime timeout))
@@ -131,7 +131,7 @@ namespace ChatGPT_Discord_Bot.Server
                     }
                     else
                     {
-                        var question = arg.Content.Replace($"<@{_client.CurrentUser.Id}>", "").Trim();
+                        var question = message.Content.Replace($"<@{_client.CurrentUser.Id}>", "").Trim();
 
                         messages.Add(new UserChatMessage($"{message.Author.Username} at {message.Timestamp.ToString()} said: {question}"));
                     }
