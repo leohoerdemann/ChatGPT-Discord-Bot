@@ -26,6 +26,8 @@ COPY . .
 WORKDIR "/src/ChatGPT-Discord-Bot.Server"
 RUN dotnet build "./ChatGPT-Discord-Bot.Server.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
+RUN mkdir -p ~/.aspnet/https
+
 # This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
