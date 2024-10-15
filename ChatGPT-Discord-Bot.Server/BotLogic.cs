@@ -24,6 +24,8 @@ namespace ChatGPT_Discord_Bot.Server
 
         private Dictionary<string, int> _userLimits = new Dictionary<string, int>();
 
+        public int MessageHistoryLimit = 3;
+
 
         public BotLogic()
         {
@@ -121,7 +123,7 @@ namespace ChatGPT_Discord_Bot.Server
                     messages.Add(new SystemChatMessage($"You are currently in the {channel.Name} channel in the {channel.Guild.Name} server"));
                 }
 
-                var last20messages = await arg.Channel.GetMessagesAsync(20).FlattenAsync();
+                var last20messages = await arg.Channel.GetMessagesAsync(MessageHistoryLimit).FlattenAsync();
 
                 foreach (var message in last20messages)
                 {
@@ -230,7 +232,11 @@ namespace ChatGPT_Discord_Bot.Server
                         .WithName("removetuserlimit")
                         .WithDescription("Remove a user limit to a user (Authorized users only)")
                         .AddOption("userid", ApplicationCommandOptionType.String, "User ID to limit", isRequired: true)
-                        .Build()
+                        .Build(),
+                    new SlashCommandBuilder()
+                        .WithName("donate")
+                        .WithDescription("info to donate")
+                        .Build(),
                     };
 
 
@@ -265,6 +271,15 @@ namespace ChatGPT_Discord_Bot.Server
                     .WithDescription("Send a message to a channel (Authorized users only)")
                     .AddOption("channelid", ApplicationCommandOptionType.String, "Channel ID to send message", isRequired: true)
                     .AddOption("message", ApplicationCommandOptionType.String, "Message to send", isRequired: true)
+                    .Build(),
+                new SlashCommandBuilder()
+                    .WithName("updateprompt")
+                    .WithDescription("Update the initial prompt")
+                    .Build(),
+                new SlashCommandBuilder()
+                    .WithName("setMessageHistoryLimit")
+                    .WithDescription("Set the message history limit")
+                    .AddOption("limit", ApplicationCommandOptionType.Integer, "The limit to set", isRequired: true)
                     .Build()
             };
 
@@ -349,6 +364,21 @@ namespace ChatGPT_Discord_Bot.Server
                 case "sendmessage":
                     await command.DeferAsync(); // Acknowledge the command
                     await SendMessage(command);
+                    break;
+                case "updateprompt":
+                    await command.DeferAsync(); // Acknowledge the command
+                    UpdatePrompt();
+                    await command.FollowupAsync("Prompt updated");
+                    break;
+                case "donate":
+                    await command.DeferAsync(); // Acknowledge the command
+                    await command.FollowupAsync("If you would like to donate to the bot, you can do so at https://buymeacoffee.com/__trip___");
+                    break;
+                case "setMessageHistoryLimit":
+                    await command.DeferAsync(); // Acknowledge the command
+                    var limit = Convert.ToInt32(command.Data.Options.First().Value);
+                    MessageHistoryLimit = limit;
+                    await command.FollowupAsync($"Message history limit set to {limit}");
                     break;
             }
         }

@@ -65,6 +65,14 @@ namespace ChatGPT_Discord_Bot.Server
                 return Results.Ok("Prompt updated.");
             }).WithOpenApi();
 
+            app.MapPost("api/setMessageHistoryLimit/{limit}", (int limit) =>
+            {
+                leoBot.MessageHistoryLimit = limit;
+                return Results.Ok("Message history limit set to " + limit);
+            }).WithOpenApi();
+
+            app.MapGet("/api/getMessageHistoryLimit", () => Results.Json(new { messageHistoryLimit = leoBot.MessageHistoryLimit }));
+
 
             app.Run();
         }
